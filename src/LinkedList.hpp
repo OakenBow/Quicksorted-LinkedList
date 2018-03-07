@@ -1,28 +1,104 @@
 #pragma once
 #include <ctype.h>
 
-template<typename T> // Because typedefs suck for this.
+#include <functional>
+
+template <typename T> // Because typedefs suck for this.
 class LinkedList {
 public:
-  using ElementType = T;
+  using EleType = T;
+  using Index = unsigned;
   LinkedList();
   ~LinkedList();
 
-  const T& get(unsigned index);
+  // Although exposing doOnNode would break encapsulation, it's still a pretty
+  // nice function to have exposed, so expose it for data ops only.
+  inline void doOn(Index index, std::function<void(EleType&)> func) {
+    doOnNode(index, [&] (Node* node) {
+      func(node->data);
+    });
+  }
 
-  void insert(T newEle, unsigned index);
-  void insertSorted(T newEle);
+  const EleType &get(Index index) {
+    EleType* node;
+    doOn(index, [&](EleType& ele) {
+      node = &ele;
+    });
+    return *node;
+  }
+  void set(Index index, EleType newEle) {
+    doOn(index, [&](EleType& ele) {
+      ele = newEle;
+    });
+  }
 
-  void erase(unsigned index);
+  void insert(EleType newEle, Index index) {
+    doOnNode(index - 1, [&] (Node* node) {
+      // Operating on the node before where we insert at,
+      // so the newNode's next is the node directly after the position's
+      // predeccessor.
+      Node* newNode = new Node{newEle, node->next};
+      node->next = newNode; // And finally re-link the chain.
+    });
+  }
+  void insertSorted(T newEle) {
+    // Wish we could still use doOn here, but we'll need
+    // a good ol' for loop.
 
-  void sort();
+  }
+
+  void erase(Index index) {
+    if(index > 0)
+    doOn(index - 1, [](Node* node) {
+      Node* oldNode = node->next;
+      // Remove from the middle of the chain
+      node->next = node->next.next;
+
+      // Now that it's safely outside the chain. delete it
+      delete oldNode;
+    });
+    else {
+      delete first;
+      first = nullptr; // As always, pesky VS.
+    }
+  }
+  inline void empty() {
+    first->chainDelete();
+    first = nullptr; // Because VS is still stupid, apparently.
+  }
+
+  void sort(); // The real moneymaker.
 
 private:
+
+
   struct Node {
-    T data;
-    Node* next;
+    EleType data;
+    Node *next;
+
+    // Goes to the end of the list, tells that one to delete itself,
+    // Then goes back down the chain to the first node, deleting all along the
+    // way. (Including first).
+    void chainDelete() {
+      if (next != nullptr)
+        next->chainDelete();
+      delete this;
+    }
   };
 
-  Node* first;
+  // Since we have to do the same traversal each time in all the other funcs,
+  // why not just make a more abstract function?
+  // TODO: Inline and take the memory hit or leave as is and take an invoke hit?
+  void doOnNode(Index index, std::function<void(Node*)>) {
+    Node* ptr = first;
+    Index cur = 0;
+    while(ptr != nullptr && cur != index) {
+      ptr = ptr->next;
+      cur++;
+    }
+    // cur == index AND ptr is now the element we want to operate on, so...
+    func(ptr);
+  }
 
+  Node *first; ///< First link in the chain.
 };
