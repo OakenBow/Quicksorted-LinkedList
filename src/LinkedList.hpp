@@ -2,6 +2,7 @@
 #include <ctype.h>
 
 #include <functional>
+#include <thread>  // We gon' thread this sort to kingdom come
 
 // Research for implementing quicksearch:
 
@@ -45,13 +46,7 @@ class LinkedList {
    }
 
    Index size() const {
-      Node *ptr  = first;
-      Index size = 0;
-      while (ptr) {
-         size++;
-         ptr = ptr->next;
-      }
-      return size;
+      return first->getChainLength(0);
    }
 
    void insert(EleType newEle, Index index) {
@@ -96,26 +91,13 @@ class LinkedList {
 
    // The real moneymaker.
    void quickSort() {
-      // What we'll do:
-      // Instead of mucking about with the list in its normal form, let's
-      // turn it into an array that we then sort, then work out the links again.
-      Node **elements = new Node *[size()];
-      Index  i        = 0;  // Let's save it.....
-      Node * ptr      = first;
-
-
-      // Build the array of all elements...
-      while (ptr) {
-         elements[i] = ptr;
-         i++;
-         ptr = ptr->next;
-      }
-
-
-      // TODO: Compare them and sort.
+      unsigned length = size();
       // TODO: TODO: Actually learn the QS algorithm.
-
-      // TODO: Re-link them all
+      // My understanding of the algorithm:
+      // 1. Break the array into 2 partitions (+pivot), 1 full of elements
+      //    greater than the pivot and 1 less than.
+      // 2. Call this algorithm on each of those partitions until left with a
+      //    base case.
    }
 
    void display(std::ostream &out, std::string delim = " ") {
@@ -139,7 +121,40 @@ class LinkedList {
             next->chainDelete();
          delete this;
       }
+      // Goes all the way to the end of the chain, adding 1 for each link
+      // Implemented like this for QS.
+      unsigned getChainLength(unsigned curLength) {
+         if (next)
+            return 1 + next->getChainLength(curLength);
+         else
+            return 1;
+      }
    };
+
+   // firstLink => The beginning of "our" array, since this may be called from
+   // other threads and we don't want multiple threads accessing the same stuff.
+   // lastLink => Index (relative to firstLink) of the last link we use.
+   //
+   // Pseudocode for the general QS algorithm from here:
+   // https://www.geeksforgeeks.org/quick-sort/
+   static void realQuickSort(Node *nodeList[], Index last) {
+      if (nodeList[0]->data < nodeList[last]->data) {
+         Index pivot = partition(nodeList, last);
+         realQuickSort(nodeList, pivot - 1);
+         realQuickSort(nodeList + (pivot + 1), last);
+      }
+   }
+
+   static Index partition(Node *nodeList[], Index last) {
+      Node *pivotNode = nodeList[last];
+
+      Index i, j = 0;
+      while (j <= last - 1) {
+      }
+   }
+
+   void rebuildLinks(Node *nodeList[], unsigned numLinks) {
+   }
 
    // Since we have to do the same traversal each time in all the other funcs,
    // why not just make a more abstract function?
